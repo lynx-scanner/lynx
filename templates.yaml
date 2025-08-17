@@ -16,10 +16,10 @@ templates:
         - external-calls
     detection:
       patterns:
-        - '\\.call\\{'
-        - '\\.call\\('
-        - '\\.send\\('
-        - '\\.transfer\\('
+        - '.call{'
+        - '.call('
+        - '.send('
+        - '.transfer('
       negative_patterns:
         - 'nonReentrant'
         - 'ReentrancyGuard'
@@ -39,29 +39,9 @@ templates:
         - tx-origin
     detection:
       patterns:
-        - 'tx\\.origin'
+        - 'tx.origin'
       negative_patterns:
         - '// tx.origin'
-
-  - id: unchecked-external-call
-    info:
-      name: "Unchecked External Call"
-      author: "Lynx Security Team"
-      severity: medium
-      description: "External call return value not checked"
-      recommendation: "Always check return values of external calls"
-      references:
-        - "https://swcregistry.io/docs/SWC-104"
-      tags:
-        - unchecked-calls
-        - external-calls
-    detection:
-      patterns:
-        - '\\.call\\('
-        - '\\.delegatecall\\('
-      negative_patterns:
-        - 'bool.*='
-        - 'require\\('
 
   - id: weak-randomness
     info:
@@ -77,9 +57,9 @@ templates:
         - block-properties
     detection:
       patterns:
-        - 'block\\.timestamp'
-        - 'block\\.number'
-        - 'block\\.difficulty'
+        - 'block.timestamp'
+        - 'block.number'
+        - 'block.difficulty'
       negative_patterns:
         - 'VRF'
 
@@ -97,7 +77,27 @@ templates:
         - access-control
     detection:
       patterns:
-        - 'selfdestruct\\('
+        - 'selfdestruct('
       negative_patterns:
         - 'onlyOwner'
-        - 'require.*owner'
+
+  - id: integer-operations
+    info:
+      name: "Integer Operations"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Arithmetic operations that could overflow in older Solidity"
+      recommendation: "Use SafeMath or upgrade to Solidity 0.8+"
+      references:
+        - "https://swcregistry.io/docs/SWC-101"
+      tags:
+        - arithmetic
+        - overflow
+    detection:
+      patterns:
+        - '+='
+        - '-='
+        - '*='
+      negative_patterns:
+        - 'SafeMath'
+        - 'pragma solidity ^0.8'
