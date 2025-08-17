@@ -171,10 +171,24 @@ class ContractScanner:
             matched_content = ""
             
             for pattern in template.patterns:
-                if re.search(pattern, line, re.IGNORECASE):
-                    matches_pattern = True
-                    matched_content = line.strip()
-                    break
+                try:
+                    # Use simple string matching for basic patterns, regex for complex ones
+                    if pattern.startswith('regex:'):
+                        # Advanced regex pattern
+                        pattern_to_use = pattern[6:]  # Remove 'regex:' prefix
+                        if re.search(pattern_to_use, line, re.IGNORECASE):
+                            matches_pattern = True
+                            matched_content = line.strip()
+                            break
+                    else:
+                        # Simple string matching
+                        if pattern.lower() in line.lower():
+                            matches_pattern = True
+                            matched_content = line.strip()
+                            break
+                except Exception as e:
+                    print(f"    ⚠️  Warning: Pattern '{pattern}' caused error: {e}")
+                    continue
 
             if not matches_pattern:
                 continue
@@ -182,9 +196,21 @@ class ContractScanner:
             # Check if line matches any negative patterns (exclusions)
             matches_negative = False
             for neg_pattern in template.negative_patterns:
-                if re.search(neg_pattern, line, re.IGNORECASE):
-                    matches_negative = True
-                    break
+                try:
+                    if neg_pattern.startswith('regex:'):
+                        # Advanced regex pattern
+                        pattern_to_use = neg_pattern[6:]  # Remove 'regex:' prefix
+                        if re.search(pattern_to_use, line, re.IGNORECASE):
+                            matches_negative = True
+                            break
+                    else:
+                        # Simple string matching
+                        if neg_pattern.lower() in line.lower():
+                            matches_negative = True
+                            break
+                except Exception as e:
+                    print(f"    ⚠️  Warning: Negative pattern '{neg_pattern}' caused error: {e}")
+                    continue
 
             if matches_negative:
                 continue
