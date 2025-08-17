@@ -1,0 +1,347 @@
+name: Lynx CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run tests weekly to catch regressions
+    - cron: '0 0 * * 0'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        exclude:
+          # Exclude some combinations to reduce job count
+          - os: windows-latest
+            python-version: '3.7'
+          - os: macos-latest
+            python-version: '3.7'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test template loading
+      run: python lynx.py --list-templates
+
+    - name: Verify templates.yaml exists
+      run: |
+        if [ ! -f "templates.yaml" ]; then
+          echo "templates.yaml not found!"
+          exit 1
+        fi
+        echo "templates.yaml found"
+
+    - name: Test template parsing
+      run: |
+        # Verify that templates are loaded correctly
+        template_count=$(python lynx.py --list-templates | grep -E "^\s*🔍" | wc -l)
+        echo "Loaded $template_count templates"
+        if [ "$template_count" -lt 5 ]; then
+          echo "Expected at least 5 templates, got $template_count"
+          exit 1
+        fi
+
+    - name: Test scanning test contracts
+      run: |
+        python lynx.py test_contracts/
+
+    - name: Test JSON output
+      run: |
+        python lynx.py test_contracts/VulnerableContract.sol -f json > results.json
+        # Verify JSON is valid
+        python -c "import json; json.load(open('results.json'))"
+
+    - name: Test detailed output
+      run: |
+        python lynx.py test_contracts/VulnerableContract.sol -f detailed
+
+    - name: Test severity filtering
+      run: |
+        python lynx.py test_contracts/VulnerableContract.sol --severity medium
+
+    - name: Test tag filtering
+      run: |
+        python lynx.py test_contracts/VulnerableContract.sol --tags reentrancy
+
+    - name: Test verbose mode
+      run: |
+        python lynx.py test_contracts/VulnerableContract.sol -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+
+    - name: Run Black (code formatting)
+      run: black --check --diff lynx.py
+
+    - name: Run isort (import sorting)
+      run: isort --check-only --diff lynx.py
+
+    - name: Run flake8 (style guide)
+      run: flake8 lynx.py --max-line-length=88 --extend-ignore=E203
+
+  template-validation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install yamllint
+
+    - name: Validate YAML syntax
+      run: |
+        yamllint -c .yamllint.yml templates.yaml
+
+    - name: Validate template structure
+      run: |
+        python -c "
+        import yaml
+        import sys
+        
+        required_fields = ['id', 'info', 'detection']
+        required_info_fields = ['name', 'author', 'severity', 'description']
+        required_detection_fields = ['patterns']
+        valid_severities = ['critical', 'high', 'medium', 'low', 'info']
+        
+        with open('templates.yaml') as f:
+            data = yaml.safe_load(f)
+        
+        if 'templates' not in data or not isinstance(data['templates'], list):
+            print('templates.yaml must contain a \"templates\" list')
+            sys.exit(1)
+        
+        for i, template in enumerate(data['templates']):
+            template_name = template.get('id', f'template-{i}')
+            
+            # Check required top-level fields
+            for field in required_fields:
+                if field not in template:
+                    print(f'Template {template_name} missing required field: {field}')
+                    sys.exit(1)
+            
+            # Check required info fields
+            for field in required_info_fields:
+                if field not in template['info']:
+                    print(f'Template {template_name} missing required info field: {field}')
+                    sys.exit(1)
+            
+            # Check severity is valid
+            if template['info']['severity'] not in valid_severities:
+                print(f'Template {template_name} has invalid severity: {template[\"info\"][\"severity\"]}')
+                sys.exit(1)
+            
+            # Check detection patterns exist
+            if 'patterns' not in template['detection'] or not template['detection']['patterns']:
+                print(f'Template {template_name} must have at least one detection pattern')
+                sys.exit(1)
+        
+        print(f'All {len(data[\"templates\"])} templates are valid!')
+        "
+
+    - name: Test template functionality
+      run: |
+        # Verify templates work with real scanning
+        python lynx.py test_contracts/ --tags reentrancy
+        python lynx.py test_contracts/ --severity high
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run Bandit security scan
+      run: bandit -r lynx.py -f json -o bandit-report.json || true
+
+    - name: Run Safety check
+      run: safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  performance-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create performance test contracts
+      run: |
+        mkdir -p perf_test_contracts
+        for i in {1..50}; do
+          cp test_contracts/VulnerableContract.sol "perf_test_contracts/contract_$i.sol"
+        done
+
+    - name: Performance test
+      run: |
+        # Time the scan
+        start_time=$(date +%s.%N)
+        python lynx.py perf_test_contracts/ > /dev/null
+        end_time=$(date +%s.%N)
+        
+        # Calculate duration
+        duration=$(echo "$end_time - $start_time" | bc)
+        echo "Scanned 50 contracts in $duration seconds"
+        
+        # Performance threshold (should complete in under 30 seconds)
+        if (( $(echo "$duration > 30" | bc -l) )); then
+          echo "Performance test failed: took $duration seconds (threshold: 30s)"
+          exit 1
+        fi
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test complete workflow
+      run: |
+        # Test full scanning workflow
+        echo "Testing complete Lynx workflow..."
+        
+        # 1. List templates
+        python lynx.py --list-templates
+        
+        # 2. Scan with different formats
+        python lynx.py test_contracts/ -f table
+        python lynx.py test_contracts/ -f json > results.json
+        python lynx.py test_contracts/ -f detailed
+        
+        # 3. Test filtering
+        python lynx.py test_contracts/ --severity high
+        python lynx.py test_contracts/ --tags reentrancy,overflow
+        
+        # 4. Test verbose mode
+        python lynx.py test_contracts/ -v
+        
+        echo "All integration tests passed!"
+
+  release-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, lint, template-validation, security-scan]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check if version changed
+      id: version-check
+      run: |
+        # Extract version from lynx.py
+        VERSION=$(grep -E "^Version: [0-9]+\.[0-9]+\.[0-9]+" lynx.py | cut -d' ' -f2)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Check if this is a new version (compare with git tags)
+        if git tag | grep -q "v$VERSION"; then
+          echo "is-new-version=false" >> $GITHUB_OUTPUT
+        else
+          echo "is-new-version=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      if: steps.version-check.outputs.is-new-version == 'true'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version-check.outputs.version }}
+        release_name: Lynx v${{ steps.version-check.outputs.version }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Lynx v${{ steps.version-check.outputs.version }} 🐾
+          
+          New release of Lynx Smart Contract Vulnerability Scanner!
+          
+          ### What's New
+          - See commit history for detailed changes
+          
+          ### Installation
+          ```bash
+          git clone https://github.com/lynx-scanner/lynx.git
+          cd lynx
+          pip install -r requirements.txt
+          python lynx.py --help
+          ```
+          
+          ### Quick Start
+          ```bash
+          python lynx.py your-contract.sol
+          ```
+          
+          Hunt vulnerabilities with feline precision! 🐾
