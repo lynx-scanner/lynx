@@ -17,16 +17,14 @@ templates:
         - external-calls
     detection:
       patterns:
+        - '\\.call\\{'
         - '\\.call\\s*\\('
         - '\\.send\\s*\\('
         - '\\.transfer\\s*\\('
-        - '\\w+\\.call\\{'
       negative_patterns:
         - 'nonReentrant'
         - 'ReentrancyGuard'
-        - '_nonReentrantBefore'
-        - '// Safe:'
-        - '/\\*\\s*Safe'
+        - '// Safe'
 
   - id: tx-origin-auth
     info:
@@ -46,13 +44,11 @@ templates:
       patterns:
         - 'tx\\.origin\\s*=='
         - 'tx\\.origin\\s*!='
-        - 'require\\s*\\(\\s*tx\\.origin'
-        - 'assert\\s*\\(\\s*tx\\.origin'
-        - 'if\\s*\\(\\s*tx\\.origin'
+        - 'require.*tx\\.origin'
+        - 'assert.*tx\\.origin'
       negative_patterns:
         - '// tx.origin'
-        - '/\\*.*tx.origin.*\\*/'
-        - '\\*\\s*tx.origin.*explanation'
+        - '/\\* tx.origin'
 
   - id: unchecked-low-level-calls
     info:
@@ -70,17 +66,14 @@ templates:
         - error-handling
     detection:
       patterns:
-        - '\\w+\\.call\\s*\\([^\\)]*\\)\\s*;'
-        - '\\w+\\.delegatecall\\s*\\([^\\)]*\\)\\s*;'
-        - '\\w+\\.staticcall\\s*\\([^\\)]*\\)\\s*;'
-        - 'address\\([^\\)]+\\)\\.call'
+        - '\\w+\\.call\\s*\\('
+        - '\\w+\\.delegatecall\\s*\\('
+        - '\\w+\\.staticcall\\s*\\('
       negative_patterns:
-        - '\\(bool\\s+\\w+,?.*\\)\\s*='
+        - '\\(bool.*\\)\\s*='
         - 'require\\s*\\('
         - 'assert\\s*\\('
-        - 'if\\s*\\('
-        - '// Checked:'
-        - '/\\*\\s*Checked'
+        - '// Checked'
 
   - id: integer-overflow
     info:
@@ -99,18 +92,15 @@ templates:
         - safemath
     detection:
       patterns:
-        - '\\w+\\s*\\+\\s*\\w+'
-        - '\\w+\\s*-\\s*\\w+'
-        - '\\w+\\s*\\*\\s*\\w+'
-        - '\\w+\\s*/\\s*\\w+'
-        - '\\w+\\s*\\*\\*\\s*\\w+'
+        - '\\w+\\s*\\+=\\s*\\w+'
+        - '\\w+\\s*-=\\s*\\w+'
+        - '\\w+\\s*\\*=\\s*\\w+'
+        - '\\w+\\s*/=\\s*\\w+'
       negative_patterns:
         - 'SafeMath'
-        - 'pragma solidity \\^0\\.[8-9]'
-        - 'pragma solidity >=0\\.8'
-        - 'unchecked\\s*\\{'
-        - '\\+\\+|--'
-        - '\\w+\\s*[+\\-*/]\\s*[0-9]+\\s*;'
+        - 'pragma solidity.*0\\.[8-9]'
+        - 'pragma solidity.*>=\\s*0\\.8'
+        - 'unchecked'
 
   - id: weak-randomness
     info:
@@ -132,13 +122,11 @@ templates:
         - 'block\\.number'
         - 'block\\.difficulty'
         - 'block\\.blockhash'
-        - 'blockhash\\('
-        - 'now\\s*%'
+        - 'blockhash\\s*\\('
       negative_patterns:
         - '// VRF'
         - 'Chainlink'
-        - 'commit.*reveal'
-        - '// Safe:'
+        - '// Safe'
 
   - id: unsafe-delegatecall
     info:
@@ -155,12 +143,11 @@ templates:
         - arbitrary-execution
     detection:
       patterns:
-        - '\\w+\\.delegatecall\\s*\\('
-        - 'delegatecall\\s*\\([^\\)]*msg\\.(sender|data)'
+        - '\\.delegatecall\\s*\\('
       negative_patterns:
-        - 'require\\s*\\(\\s*trusted\\[.*\\]'
-        - 'whitelist\\[.*\\]'
-        - '// verified contract'
+        - 'trusted'
+        - 'whitelist'
+        - '// verified'
 
   - id: unprotected-selfdestruct
     info:
@@ -181,8 +168,7 @@ templates:
         - 'suicide\\s*\\('
       negative_patterns:
         - 'onlyOwner'
-        - 'require\\s*\\(\\s*msg\\.sender\\s*=='
-        - 'modifier\\s+\\w+.*\\{[^\\}]*require[^\\}]*msg\\.sender'
+        - 'require.*msg\\.sender.*=='
 
   - id: timestamp-dependence
     info:
@@ -200,13 +186,11 @@ templates:
     detection:
       patterns:
         - 'block\\.timestamp\\s*[<>=!]'
-        - 'now\\s*[<>=!]'
-        - 'require\\s*\\([^\\)]*block\\.timestamp'
-        - 'if\\s*\\([^\\)]*block\\.timestamp'
+        - 'require.*block\\.timestamp'
+        - 'if.*block\\.timestamp'
       negative_patterns:
-        - '// timestamp tolerance'
         - 'GRACE_PERIOD'
-        - '\\+\\s*\\d+\\s*(minutes|hours|days)'
+        - 'tolerance'
 
   - id: dos-gas-limit
     info:
@@ -223,10 +207,29 @@ templates:
         - loops
     detection:
       patterns:
-        - 'for\\s*\\([^\\)]*\\.length[^\\)]*\\)'
-        - 'while\\s*\\([^\\)]*\\.length[^\\)]*\\)'
-        - 'for\\s*\\([^\\)]*users\\[.*\\]\\.length'
+        - 'for.*\\.length'
+        - 'while.*\\.length'
       negative_patterns:
-        - 'require\\s*\\([^\\)]*\\.length\\s*<'
+        - 'require.*\\.length\\s*<'
         - 'MAX_ITERATIONS'
         - '// pagination'
+
+  - id: missing-zero-address-check
+    info:
+      name: "Missing Zero Address Check"
+      author: "Lynx Security Team"
+      severity: low
+      description: "Functions should validate that address parameters are not zero address"
+      recommendation: "Add require(address != address(0)) checks for address parameters"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/development-recommendations/token-specific/"
+      tags:
+        - validation
+        - zero-address
+        - input-validation
+    detection:
+      patterns:
+        - 'function.*address.*\\w+.*\\{'
+      negative_patterns:
+        - 'require.*!=.*address\\(0\\)'
+        - 'address\\(0\\)'
