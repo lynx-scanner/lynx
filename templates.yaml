@@ -70,10 +70,10 @@ templates:
         - error-handling
     detection:
       patterns:
-        - '\\w+\\.call\\s*\\([^)]*\\)\\s*;'
-        - '\\w+\\.delegatecall\\s*\\([^)]*\\)\\s*;'
-        - '\\w+\\.staticcall\\s*\\([^)]*\\)\\s*;'
-        - 'address\\([^)]+\\)\\.call'
+        - '\\w+\\.call\\s*\\([^\\)]*\\)\\s*;'
+        - '\\w+\\.delegatecall\\s*\\([^\\)]*\\)\\s*;'
+        - '\\w+\\.staticcall\\s*\\([^\\)]*\\)\\s*;'
+        - 'address\\([^\\)]+\\)\\.call'
       negative_patterns:
         - '\\(bool\\s+\\w+,?.*\\)\\s*='
         - 'require\\s*\\('
@@ -156,7 +156,7 @@ templates:
     detection:
       patterns:
         - '\\w+\\.delegatecall\\s*\\('
-        - 'delegatecall\\s*\\([^)]*msg\\.(sender|data)'
+        - 'delegatecall\\s*\\([^\\)]*msg\\.(sender|data)'
       negative_patterns:
         - 'require\\s*\\(\\s*trusted\\[.*\\]'
         - 'whitelist\\[.*\\]'
@@ -182,7 +182,7 @@ templates:
       negative_patterns:
         - 'onlyOwner'
         - 'require\\s*\\(\\s*msg\\.sender\\s*=='
-        - 'modifier\\s+\\w+.*\\{[^}]*require[^}]*msg\\.sender'
+        - 'modifier\\s+\\w+.*\\{[^\\}]*require[^\\}]*msg\\.sender'
 
   - id: timestamp-dependence
     info:
@@ -201,8 +201,8 @@ templates:
       patterns:
         - 'block\\.timestamp\\s*[<>=!]'
         - 'now\\s*[<>=!]'
-        - 'require\\s*\\([^)]*block\\.timestamp'
-        - 'if\\s*\\([^)]*block\\.timestamp'
+        - 'require\\s*\\([^\\)]*block\\.timestamp'
+        - 'if\\s*\\([^\\)]*block\\.timestamp'
       negative_patterns:
         - '// timestamp tolerance'
         - 'GRACE_PERIOD'
@@ -223,31 +223,10 @@ templates:
         - loops
     detection:
       patterns:
-        - 'for\\s*\\([^)]*\\.length[^)]*\\)'
-        - 'while\\s*\\([^)]*\\.length[^)]*\\)'
-        - 'for\\s*\\([^)]*users\\[.*\\]\\.length'
+        - 'for\\s*\\([^\\)]*\\.length[^\\)]*\\)'
+        - 'while\\s*\\([^\\)]*\\.length[^\\)]*\\)'
+        - 'for\\s*\\([^\\)]*users\\[.*\\]\\.length'
       negative_patterns:
-        - 'require\\s*\\([^)]*\\.length\\s*<'
+        - 'require\\s*\\([^\\)]*\\.length\\s*<'
         - 'MAX_ITERATIONS'
         - '// pagination'
-
-  - id: missing-zero-address-check
-    info:
-      name: "Missing Zero Address Check"
-      author: "Lynx Security Team"
-      severity: low
-      description: "Functions should validate that address parameters are not zero address"
-      recommendation: "Add require(address != address(0)) checks for address parameters"
-      references:
-        - "https://consensys.github.io/smart-contract-best-practices/development-recommendations/token-specific/"
-      tags:
-        - validation
-        - zero-address
-        - input-validation
-    detection:
-      patterns:
-        - 'function\\s+\\w+\\s*\\([^)]*address\\s+\\w+[^)]*\\)\\s*[^{]*\\{'
-      negative_patterns:
-        - 'require\\s*\\([^)]*!=\\s*address\\(0\\)'
-        - 'require\\s*\\([^)]*!= address\\(0\\)'
-        - '_to != address\\(0\\)'
