@@ -23,6 +23,7 @@ templates:
       negative_patterns:
         - 'nonReentrant'
         - 'ReentrancyGuard'
+        - 'safeWithdraw'
 
   - id: tx-origin-auth
     info:
@@ -42,6 +43,7 @@ templates:
         - 'tx.origin'
       negative_patterns:
         - '// tx.origin'
+        - 'explanation'
 
   - id: weak-randomness
     info:
@@ -60,8 +62,10 @@ templates:
         - 'block.timestamp'
         - 'block.number'
         - 'block.difficulty'
+        - 'block.blockhash'
       negative_patterns:
         - 'VRF'
+        - 'Chainlink'
 
   - id: unprotected-selfdestruct
     info:
@@ -78,8 +82,10 @@ templates:
     detection:
       patterns:
         - 'selfdestruct('
+        - 'suicide('
       negative_patterns:
         - 'onlyOwner'
+        - 'require(msg.sender == owner'
 
   - id: integer-operations
     info:
@@ -98,6 +104,97 @@ templates:
         - '+='
         - '-='
         - '*='
+        - '/='
       negative_patterns:
         - 'SafeMath'
         - 'pragma solidity ^0.8'
+        - 'pragma solidity >=0.8'
+
+  - id: unchecked-external-call
+    info:
+      name: "Unchecked External Call"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "External call return value not checked"
+      recommendation: "Always check return values of external calls"
+      references:
+        - "https://swcregistry.io/docs/SWC-104"
+      tags:
+        - unchecked-calls
+        - external-calls
+    detection:
+      patterns:
+        - '.call('
+        - '.delegatecall('
+        - '.staticcall('
+      negative_patterns:
+        - 'bool success'
+        - 'require('
+        - '(bool'
+        - 'if ('
+
+  - id: dos-gas-limit
+    info:
+      name: "Potential DoS via Gas Limit"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Unbounded loops can cause DoS attacks"
+      recommendation: "Use pagination or limit array sizes"
+      references:
+        - "https://swcregistry.io/docs/SWC-128"
+      tags:
+        - dos
+        - gas-limit
+        - loops
+    detection:
+      patterns:
+        - 'for (uint256 i = 0; i < users.length'
+        - 'for (uint i = 0; i < holders.length'
+        - '.length; i++)'
+      negative_patterns:
+        - 'require('
+        - 'MAX_'
+        - 'pagination'
+
+  - id: timestamp-dependence
+    info:
+      name: "Timestamp Dependence"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Using block.timestamp for critical logic"
+      recommendation: "Avoid timestamp dependence or use tolerance"
+      references:
+        - "https://swcregistry.io/docs/SWC-116"
+      tags:
+        - timestamp
+        - manipulation
+    detection:
+      patterns:
+        - 'block.timestamp >'
+        - 'block.timestamp <'
+        - 'block.timestamp =='
+        - 'block.timestamp %'
+      negative_patterns:
+        - 'GRACE_PERIOD'
+        - 'tolerance'
+
+  - id: missing-zero-check
+    info:
+      name: "Missing Zero Address Check"
+      author: "Lynx Security Team"
+      severity: low
+      description: "Missing validation for zero address"
+      recommendation: "Add require(address != address(0)) checks"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/"
+      tags:
+        - validation
+        - zero-address
+    detection:
+      patterns:
+        - 'function transferOwnership(address'
+        - 'owner = newOwner'
+      negative_patterns:
+        - 'require('
+        - 'address(0)'
+        - 'validAddress'
