@@ -1,0 +1,253 @@
+# Lynx Smart Contract Vulnerability Templates
+# Hunt vulnerabilities with feline precision 🐾
+
+templates:
+  - id: reentrancy-call
+    info:
+      name: "Potential Reentrancy Attack"
+      author: "Lynx Security Team"
+      severity: high
+      description: "Detected potential reentrancy vulnerability with external call before state change"
+      recommendation: "Use checks-effects-interactions pattern, reentrancy guards, or pull payment pattern"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/attacks/reentrancy/"
+        - "https://swcregistry.io/docs/SWC-107"
+      tags:
+        - reentrancy
+        - external-calls
+    detection:
+      patterns:
+        - '\\.call\\s*\\('
+        - '\\.send\\s*\\('
+        - '\\.transfer\\s*\\('
+        - '\\w+\\.call\\{'
+      negative_patterns:
+        - 'nonReentrant'
+        - 'ReentrancyGuard'
+        - '_nonReentrantBefore'
+        - '// Safe:'
+        - '/\\*\\s*Safe'
+
+  - id: tx-origin-auth
+    info:
+      name: "Dangerous use of tx.origin"
+      author: "Lynx Security Team"
+      severity: high
+      description: "Using tx.origin for authentication is vulnerable to phishing attacks"
+      recommendation: "Use msg.sender instead of tx.origin for authentication checks"
+      references:
+        - "https://docs.soliditylang.org/en/latest/security-considerations.html#tx-origin"
+        - "https://swcregistry.io/docs/SWC-115"
+      tags:
+        - authentication
+        - phishing
+        - tx-origin
+    detection:
+      patterns:
+        - 'tx\\.origin\\s*=='
+        - 'tx\\.origin\\s*!='
+        - 'require\\s*\\(\\s*tx\\.origin'
+        - 'assert\\s*\\(\\s*tx\\.origin'
+        - 'if\\s*\\(\\s*tx\\.origin'
+      negative_patterns:
+        - '// tx.origin'
+        - '/\\*.*tx.origin.*\\*/'
+        - '\\*\\s*tx.origin.*explanation'
+
+  - id: unchecked-low-level-calls
+    info:
+      name: "Unchecked Low-Level Calls"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Low-level calls should have their return values checked to handle failures properly"
+      recommendation: "Always check return values of low-level calls using require() or handle failures appropriately"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/#handle-errors-in-external-calls"
+        - "https://swcregistry.io/docs/SWC-104"
+      tags:
+        - unchecked-calls
+        - low-level
+        - error-handling
+    detection:
+      patterns:
+        - '\\w+\\.call\\s*\\([^)]*\\)\\s*;'
+        - '\\w+\\.delegatecall\\s*\\([^)]*\\)\\s*;'
+        - '\\w+\\.staticcall\\s*\\([^)]*\\)\\s*;'
+        - 'address\\([^)]+\\)\\.call'
+      negative_patterns:
+        - '\\(bool\\s+\\w+,?.*\\)\\s*='
+        - 'require\\s*\\('
+        - 'assert\\s*\\('
+        - 'if\\s*\\('
+        - '// Checked:'
+        - '/\\*\\s*Checked'
+
+  - id: integer-overflow
+    info:
+      name: "Potential Integer Overflow/Underflow"
+      author: "Lynx Security Team"
+      severity: high
+      description: "Arithmetic operations without SafeMath or built-in overflow checks (pre-0.8.0)"
+      recommendation: "Use SafeMath library for Solidity < 0.8.0, or upgrade to Solidity >= 0.8.0 for built-in checks"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/attacks/insecure-arithmetic/"
+        - "https://swcregistry.io/docs/SWC-101"
+      tags:
+        - arithmetic
+        - overflow
+        - underflow
+        - safemath
+    detection:
+      patterns:
+        - '\\w+\\s*\\+\\s*\\w+'
+        - '\\w+\\s*-\\s*\\w+'
+        - '\\w+\\s*\\*\\s*\\w+'
+        - '\\w+\\s*/\\s*\\w+'
+        - '\\w+\\s*\\*\\*\\s*\\w+'
+      negative_patterns:
+        - 'SafeMath'
+        - 'pragma solidity \\^0\\.[8-9]'
+        - 'pragma solidity >=0\\.8'
+        - 'unchecked\\s*\\{'
+        - '\\+\\+|--'
+        - '\\w+\\s*[+\\-*/]\\s*[0-9]+\\s*;'
+
+  - id: weak-randomness
+    info:
+      name: "Weak Source of Randomness"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Using block properties for randomness is predictable and can be manipulated by miners"
+      recommendation: "Use Chainlink VRF or commit-reveal schemes for secure randomness"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/development-recommendations/solidity-specific/assert-require-revert/#beware-rounding-with-integer-division"
+        - "https://swcregistry.io/docs/SWC-120"
+      tags:
+        - randomness
+        - block-properties
+        - predictable
+    detection:
+      patterns:
+        - 'block\\.timestamp'
+        - 'block\\.number'
+        - 'block\\.difficulty'
+        - 'block\\.blockhash'
+        - 'blockhash\\('
+        - 'now\\s*%'
+      negative_patterns:
+        - '// VRF'
+        - 'Chainlink'
+        - 'commit.*reveal'
+        - '// Safe:'
+
+  - id: unsafe-delegatecall
+    info:
+      name: "Unsafe Delegatecall"
+      author: "Lynx Security Team"
+      severity: critical
+      description: "Delegatecall to user-controlled address can allow arbitrary code execution"
+      recommendation: "Validate delegatecall targets against a whitelist of trusted contracts"
+      references:
+        - "https://swcregistry.io/docs/SWC-112"
+        - "https://consensys.github.io/smart-contract-best-practices/attacks/delegatecall/"
+      tags:
+        - delegatecall
+        - arbitrary-execution
+    detection:
+      patterns:
+        - '\\w+\\.delegatecall\\s*\\('
+        - 'delegatecall\\s*\\([^)]*msg\\.(sender|data)'
+      negative_patterns:
+        - 'require\\s*\\(\\s*trusted\\[.*\\]'
+        - 'whitelist\\[.*\\]'
+        - '// verified contract'
+
+  - id: unprotected-selfdestruct
+    info:
+      name: "Unprotected Selfdestruct"
+      author: "Lynx Security Team"
+      severity: critical
+      description: "Selfdestruct function without proper access control can be called by anyone"
+      recommendation: "Add proper access control (onlyOwner modifier) to selfdestruct functions"
+      references:
+        - "https://swcregistry.io/docs/SWC-106"
+      tags:
+        - selfdestruct
+        - access-control
+        - destruction
+    detection:
+      patterns:
+        - 'selfdestruct\\s*\\('
+        - 'suicide\\s*\\('
+      negative_patterns:
+        - 'onlyOwner'
+        - 'require\\s*\\(\\s*msg\\.sender\\s*=='
+        - 'modifier\\s+\\w+.*\\{[^}]*require[^}]*msg\\.sender'
+
+  - id: timestamp-dependence
+    info:
+      name: "Timestamp Dependence"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Using block.timestamp for critical logic can be manipulated by miners"
+      recommendation: "Avoid using block.timestamp for critical operations or use it with sufficient tolerance"
+      references:
+        - "https://swcregistry.io/docs/SWC-116"
+      tags:
+        - timestamp
+        - manipulation
+        - block-properties
+    detection:
+      patterns:
+        - 'block\\.timestamp\\s*[<>=!]'
+        - 'now\\s*[<>=!]'
+        - 'require\\s*\\([^)]*block\\.timestamp'
+        - 'if\\s*\\([^)]*block\\.timestamp'
+      negative_patterns:
+        - '// timestamp tolerance'
+        - 'GRACE_PERIOD'
+        - '\\+\\s*\\d+\\s*(minutes|hours|days)'
+
+  - id: dos-gas-limit
+    info:
+      name: "Potential DoS via Gas Limit"
+      author: "Lynx Security Team"
+      severity: medium
+      description: "Unbounded loops can cause DoS attacks by hitting gas limits"
+      recommendation: "Use pagination, limit array sizes, or implement circuit breakers"
+      references:
+        - "https://swcregistry.io/docs/SWC-128"
+      tags:
+        - dos
+        - gas-limit
+        - loops
+    detection:
+      patterns:
+        - 'for\\s*\\([^)]*\\.length[^)]*\\)'
+        - 'while\\s*\\([^)]*\\.length[^)]*\\)'
+        - 'for\\s*\\([^)]*users\\[.*\\]\\.length'
+      negative_patterns:
+        - 'require\\s*\\([^)]*\\.length\\s*<'
+        - 'MAX_ITERATIONS'
+        - '// pagination'
+
+  - id: missing-zero-address-check
+    info:
+      name: "Missing Zero Address Check"
+      author: "Lynx Security Team"
+      severity: low
+      description: "Functions should validate that address parameters are not zero address"
+      recommendation: "Add require(address != address(0)) checks for address parameters"
+      references:
+        - "https://consensys.github.io/smart-contract-best-practices/development-recommendations/token-specific/"
+      tags:
+        - validation
+        - zero-address
+        - input-validation
+    detection:
+      patterns:
+        - 'function\\s+\\w+\\s*\\([^)]*address\\s+\\w+[^)]*\\)\\s*[^{]*\\{'
+      negative_patterns:
+        - 'require\\s*\\([^)]*!=\\s*address\\(0\\)'
+        - 'require\\s*\\([^)]*!= address\\(0\\)'
+        - '_to != address\\(0\\)'
