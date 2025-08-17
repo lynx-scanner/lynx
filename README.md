@@ -35,16 +35,9 @@ A **Nuclei-inspired** vulnerability scanner for **Smart Contracts**. Lynx uses Y
    pip install -r requirements.txt
    ```
 
-3. **Get templates file:**
+3. **Run your first scan:**
    ```bash
-   # The templates.yaml file should be included in the repository
-   # Or create a placeholder with:
-   python lynx.py --create-templates
-   ```
-
-4. **Run your first scan:**
-   ```bash
-   python lynx.py ./contracts/
+   python lynx.py test_contracts/
    ```
 
 ### Requirements
@@ -171,67 +164,137 @@ templates:
 
 ## 🏗️ Built-in Templates
 
-Lynx comes with templates for common vulnerabilities:
+Lynx comes with 12 comprehensive vulnerability templates:
 
-| Template ID | Severity | Description |
-|-------------|----------|-------------|
-| `reentrancy-call` | High | Detects potential reentrancy attacks |
-| `tx-origin-auth` | High | Finds dangerous tx.origin usage |
-| `unchecked-low-level-calls` | Medium | Unchecked low-level call returns |
-| `integer-overflow` | High | Arithmetic overflow/underflow risks |
-| `weak-randomness` | Medium | Weak randomness sources |
-| `unsafe-delegatecall` | Critical | Unsafe delegatecall usage |
-| `unprotected-selfdestruct` | Critical | Unprotected selfdestruct functions |
-| `timestamp-dependence` | Medium | Timestamp manipulation risks |
-| `dos-gas-limit` | Medium | DoS via gas limit attacks |
-| `missing-zero-address-check` | Low | Missing zero address validation |
+| Template ID | Severity | Description | Tags |
+|-------------|----------|-------------|------|
+| `reentrancy-call` | High | Potential reentrancy attacks | `reentrancy`, `external-calls` |
+| `tx-origin-auth` | High | Dangerous tx.origin usage | `authentication`, `phishing` |
+| `unchecked-low-level-calls` | Medium | Unchecked low-level call returns | `unchecked-calls`, `low-level` |
+| `integer-overflow` | High | Arithmetic overflow/underflow risks | `arithmetic`, `overflow` |
+| `weak-randomness` | Medium | Weak randomness sources | `randomness`, `block-properties` |
+| `unsafe-delegatecall` | Critical | Unsafe delegatecall usage | `delegatecall`, `arbitrary-execution` |
+| `unprotected-selfdestruct` | Critical | Unprotected selfdestruct functions | `selfdestruct`, `access-control` |
+| `timestamp-dependence` | Medium | Timestamp manipulation risks | `timestamp`, `manipulation` |
+| `dos-gas-limit` | Medium | DoS via gas limit attacks | `dos`, `gas-limit`, `loops` |
+| `missing-zero-address-check` | Low | Missing zero address validation | `validation`, `zero-address` |
+
+## 🧪 Test Contracts
+
+Lynx includes comprehensive test contracts for validation:
+
+### VulnerableContract.sol
+A comprehensive contract showcasing multiple vulnerability types:
+- Reentrancy attacks
+- tx.origin authentication issues
+- Unchecked external calls
+- Integer overflow vulnerabilities
+- Weak randomness implementation
+- Unsafe delegatecall usage
+- Unprotected selfdestruct
+- Timestamp dependence
+- DoS via gas limit
+- Missing address validation
+
+### SafeContract.sol  
+Demonstrates security best practices:
+- Proper reentrancy protection
+- Checks-effects-interactions pattern
+- Comprehensive input validation
+- Safe arithmetic operations
+- DoS protection mechanisms
+- Emergency pause functionality
+
+### SimpleToken.sol
+A token contract with common vulnerabilities (Solidity 0.7.0):
+- Integer overflow in older Solidity versions
+- tx.origin for authorization
+- Missing zero address checks
+- Weak randomness for airdrops
+- Unchecked external calls
+
+### SafeMath.sol
+Safe arithmetic library for older Solidity versions
 
 ## 📊 Example Output
 
 ### Table Format (Default)
 ```
-🔍 Found 3 potential vulnerabilities:
+🔍 Found 8 potential vulnerabilities:
 
-🔴 HIGH (2)
+🔴 CRITICAL (2)
+--------------------------------------------------------------------------------
+  Unsafe Delegatecall
+  📄 VulnerableContract.sol:89
+  💡 Delegatecall to user-controlled address can allow arbitrary code execution
+  🔍 target.delegatecall(data);
+
+  Unprotected Selfdestruct
+  📄 VulnerableContract.sol:95
+  💡 Selfdestruct function without proper access control can be called by anyone
+  🔍 selfdestruct(payable(msg.sender));
+
+🟠 HIGH (3)
 --------------------------------------------------------------------------------
   Potential Reentrancy Attack
   📄 VulnerableContract.sol:45
   💡 External call before state change may allow reentrancy attacks
-  🔍 victim.call{value: amount}("");
+  🔍 (bool success, ) = msg.sender.call{value: amount}("");
 
   Dangerous use of tx.origin
-  📄 VulnerableContract.sol:12
+  📄 VulnerableContract.sol:26
   💡 Using tx.origin for authentication is vulnerable to phishing
-  🔍 require(tx.origin == owner);
+  🔍 require(tx.origin == owner, "Only owner");
 
-🟡 MEDIUM (1)
+  Potential Integer Overflow/Underflow
+  📄 VulnerableContract.sol:67
+  💡 Arithmetic operations without SafeMath or built-in overflow checks
+  🔍 return a + b;
+
+🟡 MEDIUM (2)
 --------------------------------------------------------------------------------
   Unchecked Low-Level Calls
-  📄 VulnerableContract.sol:67
+  📄 VulnerableContract.sol:35
   💡 Low-level calls should have their return values checked
   🔍 target.call(data);
 
-📊 Summary: 3 total findings
-   HIGH: 2
-   MEDIUM: 1
+  Weak Source of Randomness
+  📄 VulnerableContract.sol:75
+  💡 Using block properties for randomness is predictable
+  🔍 block.timestamp,
+
+🔵 LOW (1)
+--------------------------------------------------------------------------------
+  Missing Zero Address Check
+  📄 VulnerableContract.sol:142
+  💡 Functions should validate that address parameters are not zero address
+  🔍 function transferOwnership(address newOwner) external {
+
+📊 Summary: 8 total findings
+   CRITICAL: 2
+   HIGH: 3
+   MEDIUM: 2
+   LOW: 1
 
 🚨 High risk issues detected! Review critical and high severity findings immediately.
+
+🐾 Lynx scanning complete! Stay secure.
 ```
 
 ### JSON Format
 ```json
 {
   "scan_time": "2024-01-15T10:30:45",
-  "total_findings": 3,
+  "total_findings": 8,
   "scanner": "Lynx v1.0.0",
   "findings": [
     {
       "template_id": "reentrancy-call",
       "name": "Potential Reentrancy Attack",
       "severity": "high",
-      "file_path": "./contracts/VulnerableContract.sol",
+      "file_path": "./test_contracts/VulnerableContract.sol",
       "line_number": 45,
-      "matched_content": "victim.call{value: amount}(\"\");",
+      "matched_content": "(bool success, ) = msg.sender.call{value: amount}(\"\");",
       "recommendation": "Use checks-effects-interactions pattern"
     }
   ]
@@ -318,13 +381,18 @@ lynx/
 ├── lynx.py                      # Main scanner application
 ├── templates.yaml               # All vulnerability templates in one file
 ├── test_contracts/              # Sample contracts for testing
-│   ├── VulnerableContract.sol
-│   ├── SafeContract.sol
-│   └── SafeMath.sol
-├── requirements.txt             # Python dependencies
+│   ├── VulnerableContract.sol   # Multiple vulnerabilities showcase
+│   ├── SafeContract.sol         # Security best practices
+│   ├── SimpleToken.sol          # Token with vulnerabilities
+│   └── SafeMath.sol             # Safe arithmetic library
+├── requirements.txt             # Python dependencies (just PyYAML)
 ├── install.sh                   # Installation script
 ├── README.md                    # This file
-└── CONTRIBUTING.md              # Contribution guidelines
+├── CONTRIBUTING.md              # Contribution guidelines
+├── LICENSE                      # MIT License
+├── .gitignore                   # Git ignore rules
+├── .yamllint.yml               # YAML linting config
+└── .github/workflows/ci.yml     # GitHub Actions CI/CD
 ```
 
 ### Testing
@@ -332,6 +400,11 @@ lynx/
 ```bash
 # Test with sample contracts
 python lynx.py test_contracts/
+
+# Test individual contracts
+python lynx.py test_contracts/VulnerableContract.sol
+python lynx.py test_contracts/SafeContract.sol
+python lynx.py test_contracts/SimpleToken.sol
 
 # Test template loading
 python lynx.py --list-templates
@@ -342,7 +415,27 @@ python lynx.py test_contracts/ -t your-templates.yaml
 # Test output formats
 python lynx.py test_contracts/ -f json
 python lynx.py test_contracts/ -f detailed
+
+# Test filtering
+python lynx.py test_contracts/ --severity high
+python lynx.py test_contracts/ --tags reentrancy,overflow
 ```
+
+### Installation Script
+
+Use the included installation script for easy setup:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+- Check Python 3.7+ installation
+- Install PyYAML dependency
+- Set up test contracts
+- Test the installation
+- Optionally create a command alias
 
 ## 📜 License
 
@@ -360,3 +453,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Solidity Security Considerations](https://docs.soliditylang.org/en/latest/security-considerations.html)
 - [ConsenSys Best Practices](https://consensys.github.io/smart-contract-best-practices/)
 - [OpenZeppelin Security](https://docs.openzeppelin.com/contracts/security)
+
+## 📞 Support
+
+- 🐛 [Report Issues](https://github.com/lynx-scanner/lynx/issues)
+- 💬 [Discussions](https://github.com/lynx-scanner/lynx/discussions) 
+- 📧 Email: security@lynx-scanner.dev
+
+---
+
+**🐾 Start hunting vulnerabilities with Lynx today!**
+
+*Made with ❤️ by the Lynx Security Team*
